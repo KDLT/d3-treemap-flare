@@ -1,0 +1,21 @@
+@import 'svg';
+
+html,body {
+  background: lightsteelblue;
+  padding: 0;
+  margin: 0;
+  text-align: center;
+  font-family: 'trebuchet ms', 'sans-serif', 'arial';
+  font-size: 11px;
+}
+
+#tooltip {
+  position: absolute;
+  background: hsla(0, 0%, 0%, 0.76);
+  padding: 5px 10px;
+  border-radius: 4px;
+  -webkit-border-radius: 4px;
+  -moz-border-radius: 4px;
+  -ms-border-radius: 4px;
+  -o-border-radius: 4px;
+}
