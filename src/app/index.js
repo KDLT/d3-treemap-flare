@@ -4,6 +4,9 @@ import { json } from 'd3-fetch';
 import { scaleOrdinal } from 'd3-scale';
 import { select, selectAll } from 'd3-selection';
 import { treemap, hierarchy, treemapResquarify } from 'd3-hierarchy';
+import { interpolateRgb } from 'd3-interpolate';
+import { schemePaired } from 'd3-scale-chromatic';
+import { format } from 'd3-format';
 
 // IMPORTANT! IMPORT THIS SO WEBPACK CREATES A FILE IN DOCS FOLDER
 // THIS IS WHERE fetchData LOOKS FOR LOCALLY
@@ -58,26 +61,31 @@ class Treemap extends Component {
 
   createTreemap(data) {
     console.log('creating treemap...')
-    const node = this.node
-
-    const color = scaleOrdinal()
-
-    const sumBySize = d => d.size, // size ay property ng data na nasa flare.json
-          sumByCount = d => d.children ? 0 : 1; // kung may children ang current node, 0 ang count
+    const node = this.node,
+    // habang lumalapit sa 1, pa-white nang pa-white 'yung fadedSchemePaired, who'dathunk?
+          fadedSchemePaired = schemePaired.map(clr => interpolateRgb(clr, 'white')(0.5)),
+    // console.log({fadedSchemePaired});
+          color = scaleOrdinal(fadedSchemePaired),
+          sumBySize = d => {
+            console.log('in sum (bySize): ', d.size);
+            return d.size
+          }, // size ay property ng data na nasa flare.json
+          sumByCount = d => {
+            console.log('in sum (byChildren): ', d.children ? 0 : 1);
+            return d.children ? 0 : 1;
+          } // kung may children ang current node, 0 returned value
 
     const rootNode = hierarchy(data)
-      .eachBefore(d => {
-        d.data.id = (d.parent ? d.parent.data.id + '.' : '') + d.data.name
-      })
+    .eachBefore(d => {
+      // analyze this algo.. hmmm
+      d.data.id = (d.parent ? d.parent.data.id + '.' : '') + d.data.name
+      // d.data.id is an entirely new key-value pair for each d (from data)
+      // looks like a deep object call towards the leaf element of the data hierarchy
+    })
       .sum(sumBySize)
       .sort((a,b) => (
         b.height - a.height || b.value - a.value
-      ))           
-    // console.log(rootNode.descendants()[3].ancestors()); // ancestor from (node).
-    // console.log(rootNode.children.descendants()); // descendant from (node).
-    // console.log(rootNode.leaves()) // nodes without children
-    // console.log(rootNode.children[rootNode.children.length - 1]) // last child of rootNode
-    // console.log(rootNode.count()) // dunno what this does yet
+      ))
 
     console.log('rootNode before: ', rootNode.leaves());
 
@@ -96,12 +104,16 @@ class Treemap extends Component {
       .data(rootNode.leaves())
       .enter().append('g')
         .attr('class', 'group')
+        // itong ang magppwesto ng leaves sa dapat nilang kalagyan
         .attr('transform', d => `translate(${d.x0}, ${d.y0})`)
           .append('rect')
           .attr('id', d => d.data.id)
           .attr('width', d => d.x1 - d.x0)
           .attr('height', d => d.y1 - d.y0)
-          .attr('fill', d => 'gray')
+          .attr('fill', d => color(d.parent.data.id)) 
+          // ang parent.data.id ay parang napakalalim na object, e.g.,
+          // flare.vis.operator.layout.NodeLinkTreeLayout 
+          // 'yung huling-huling naka-TitleCase ang leaf,
 
     selectAll('g').append('clipPath') // kung lumampas 'yung text sa rect, iciclip nito
             .attr('id', d => 'clip-' + d.data.id )
@@ -118,11 +130,8 @@ class Treemap extends Component {
         .text(d => d) // text 'yung mismong array?
     
     selectAll('g').append('title')
-      .text(d => d.data.id + '\n' + d.value) // parang tooltip 'tong title element
-
-
-    
-    
+      // formatted ang value, ',d' -> decimal with comma separators
+      .text(d => d.data.id + '\n' + format(',d')(d.value)) // parang tooltip 'tong title element
   }
 
   render() {
