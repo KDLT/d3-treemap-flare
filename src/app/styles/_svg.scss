@@ -1,5 +1,5 @@
 svg#treemap {
-  background: white;
+  background: none;
   color: black;
   //margin: 0 20px 0 20px;
   //padding: 10px;
@@ -8,6 +8,8 @@ svg#treemap {
   -moz-transform: scale(0.95);
   -ms-transform: scale(0.95);
   -o-transform: scale(0.95);
+  overflow: visible;
+  padding-bottom: 50px;
 }
 
 // var legend = d3.select("#legend")

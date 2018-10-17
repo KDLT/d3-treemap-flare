@@ -5,7 +5,7 @@ import { scaleOrdinal } from 'd3-scale';
 import { select, selectAll, event } from 'd3-selection';
 import { treemap, hierarchy, treemapResquarify } from 'd3-hierarchy';
 import { interpolateRgb } from 'd3-interpolate';
-import { schemePaired } from 'd3-scale-chromatic';
+import { schemePaired, interpolateInferno } from 'd3-scale-chromatic';
 import { format } from 'd3-format';
 import { transition } from 'd3-transition';
 
@@ -13,11 +13,10 @@ import { transition } from 'd3-transition';
 // THIS IS WHERE fetchData LOOKS FOR LOCALLY
 import './helper/sample.json';
 import './helper/flare.json';
-// console.log({sampleData});
 
 import './styles/main.scss';
 
-const GAMES = 'https://cdn.rawgit.com/freeCodeCamp/testable-projects-fcc/a80ce8f9/src/data/tree_map/kickstarter-funding-data.json';
+const GAMES = 'https://cdn.rawgit.com/freeCodeCamp/testable-projects-fcc/a80ce8f9/src/data/tree_map/video-game-sales-data.json';
 const MOVIES = 'https://cdn.rawgit.com/freeCodeCamp/testable-projects-fcc/a80ce8f9/src/data/tree_map/movie-data.json';
 const KICKSTARTERS = 'https://cdn.rawgit.com/freeCodeCamp/testable-projects-fcc/a80ce8f9/src/data/tree_map/kickstarter-funding-data.json';
 
@@ -39,7 +38,6 @@ class Treemap extends Component {
   componentDidMount() {
     console.log('component mounted!');
     // console.log({sampleData})
-    // this.fetchData('./json/sample.json');
     this.fetchData('./json/flare.json');
     // this.fetchData(GAMES);
     // this.fetchData(MOVIES);
@@ -176,13 +174,7 @@ class Treemap extends Component {
         .attr('y', (d,i) => (13 + i * 12)) // 13px below the top, 15px every line
         .text(d => d) // text isa-isang result nung split
     
-    let categories = rootNode.leaves().map(i => i.parent.data.name)
-    // let removeDupes = (categories) => {
-    //   let seen = {};
-    //   return categories.filter(i => (
-    //     seen.hasOwnProperty(i) ? false : (seen[i] = true)
-    //   ))
-    // }
+    const categories = rootNode.leaves().map(i => i.parent.data.id);
     const removeDupes = (categories) => {
       let seen = [];
       categories.filter(d => {
@@ -192,12 +184,46 @@ class Treemap extends Component {
       return seen
     }
     const categoriesFiltered = removeDupes(categories);
-    
-    console.log({ categoriesFiltered});
-    
-    selectAll(node).append('g')
-      .attr('id', 'legend')
+    // console.log({ categoriesFiltered});
+    const legendNum = categoriesFiltered.length,
+          legendSideLength = 40,
+          legendWidth = this.state.w / 2, // 600
+          legendNumCols = Math.floor(legendNum / 5), // 6; 'yung divisor na 5 ako lang nagset
+          legendNumRows = Math.ceil(legendNum / legendNumCols); // 5
+    console.log({ categoriesFiltered, legendNumCols, legendNumRows });
+    const legendColWidth = legendWidth / legendNumCols, // 600/6; 100 px per entry sa isang column
+          legendRowHeight = legendSideLength + 20,
+          // legendEntryWidth = (1200 + legendSideLength) / legendNum;
+          legendColCoords = Array(legendNumCols).fill(0).map((d,i) => (
+            legendWidth / 2 + i * legendColWidth
+          )),
+          legendRowCoords = Array(legendNumRows).fill(0).map((d,i) => (
+            this.state.h + 20 + i * legendRowHeight
+          ));
 
+    console.log({legendColCoords,legendRowCoords});
+    select(node).append('g')
+      .attr('id', 'legend')
+      .selectAll('g')
+      .data(categoriesFiltered).enter() // note of the reverse method here
+      .append('g')
+      .attr('class', 'legend-category')
+        .append('rect')
+        .attr('class', 'legend-color')
+          .attr('height', legendSideLength)
+          .attr('width', legendSideLength)
+          .attr('x', (d, i) => legendColCoords[Math.ceil(i % legendNumCols)])
+          .attr('y', (d,i) => legendRowCoords[Math.floor(i % legendNumRows)])
+          .attr('fill', d => color(d))
+          .attr('data-category', d => d.match(/\w+$/g)[0]);
+
+    selectAll('.legend-category')
+      .append('text')
+      .attr('class', 'legend-text')
+      .attr('x', (d, i) => legendColCoords[Math.ceil(i % legendNumCols)])
+      .attr('y', (d, i) => legendRowCoords[Math.floor(i % legendNumRows)] - 5)
+        .text((d,i) => i + ' ' + d.match(/\w+$/g)[0]); // selects the last object
+    
   }
 
   render() {
