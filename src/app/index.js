@@ -2,11 +2,12 @@ import React, { Component } from 'react';
 import { render } from 'react-dom';
 import { json } from 'd3-fetch';
 import { scaleOrdinal } from 'd3-scale';
-import { select, selectAll } from 'd3-selection';
+import { select, selectAll, event } from 'd3-selection';
 import { treemap, hierarchy, treemapResquarify } from 'd3-hierarchy';
 import { interpolateRgb } from 'd3-interpolate';
 import { schemePaired } from 'd3-scale-chromatic';
 import { format } from 'd3-format';
+import { transition } from 'd3-transition';
 
 // IMPORTANT! IMPORT THIS SO WEBPACK CREATES A FILE IN DOCS FOLDER
 // THIS IS WHERE fetchData LOOKS FOR LOCALLY
@@ -66,14 +67,9 @@ class Treemap extends Component {
           fadedSchemePaired = schemePaired.map(clr => interpolateRgb(clr, 'white')(0.5)),
     // console.log({fadedSchemePaired});
           color = scaleOrdinal(fadedSchemePaired),
-          sumBySize = d => {
-            console.log('in sum (bySize): ', d.size);
-            return d.size
-          }, // size ay property ng data na nasa flare.json
-          sumByCount = d => {
-            console.log('in sum (byChildren): ', d.children ? 0 : 1);
-            return d.children ? 0 : 1;
-          } // kung may children ang current node, 0 returned value
+          sumBySize = d => d.size, // size ay property ng data na nasa flare.json
+          sumByCount = d => (d.children ? 0 : 1);
+          // kung may children ang current node, 0 returned value
 
     const rootNode = hierarchy(data)
     .eachBefore(d => {
@@ -87,7 +83,7 @@ class Treemap extends Component {
         b.height - a.height || b.value - a.value
       ))
 
-    console.log('rootNode before: ', rootNode.leaves());
+    // console.log('rootNode before: ', rootNode.leaves());
 
     let treemapity = treemap()
       .tile(treemapResquarify) // default is d3.treemapResquarify, uses the golden ratio square format
@@ -97,7 +93,49 @@ class Treemap extends Component {
     
     treemapity(rootNode);
     // console.log(treemap(rootNode));
-    console.log('rootNode afterr: ', rootNode.leaves());
+    // console.log('rootNode.leaves(): ', rootNode.leaves());
+    // console.log('rootNode: ', rootNode);
+
+    let parentsArrayGetter = (id) => {
+      // console.log('dataArray: ', id.match(/([a-z]+)(?=\.)/g));
+      return (id.match(/([a-z]+)(?=\.)/g));
+    };
+
+    let tooltipHtml = (ancestorsArray, name, value) => {
+      let ancestring = '', generation = ancestorsArray.length;
+      for (let i of ancestorsArray.reverse()) {
+        generation--;
+        ancestring += 'Gen ' + generation + ':\t' + i + '<br/>';
+      }
+      return 'Leaf:\t' + name + '<br/><br/>' + ancestring + '<br/>size:\t' + value;
+    };
+
+    const tooltip = select('#tooltip');
+
+    const handleMouseover = (d) => {
+      let name = d.data.name.split(/(?=[A-Z][^A-Z])/g).join(' ');
+      let id = d.data.id;
+      let val = format(',d')(d.data.size);
+      let ancestorsArray = parentsArrayGetter(id);
+      
+      tooltip.transition()
+        .duration(100)
+        .style('opacity', 0.9)
+        .style('transform', 'scale(1) translate(-50px, -118px)')
+        .style('stroke', 'lightslategray')
+      tooltip.html(tooltipHtml(ancestorsArray, name, val))
+    };
+    const handleMouseMove = () => {
+      tooltip.style('top', `${event.pageY}`)
+        .style('left', event.pageX)
+    };
+    const handleMouseOut = () => {
+      tooltip.transition()
+        .duration(100)
+        .style('opacity', 0)
+        .style('transform', 'scale(0)')
+        .style('stroke', 'none')
+    };
 
     select(node).selectAll('g')
       .attr('id', 'cell')
@@ -110,38 +148,67 @@ class Treemap extends Component {
           .attr('id', d => d.data.id)
           .attr('width', d => d.x1 - d.x0)
           .attr('height', d => d.y1 - d.y0)
-          .attr('fill', d => color(d.parent.data.id)) 
+          .attr('fill', d => {
+            console.log('coloring with: ', d.parent.data.id);
+            return color(d.parent.data.id)
+          }) 
           // ang parent.data.id ay parang napakalalim na object, e.g.,
           // flare.vis.operator.layout.NodeLinkTreeLayout 
           // 'yung huling-huling naka-TitleCase ang leaf,
+          .on('mouseover', d => handleMouseover(d))
+          .on('mousemove', handleMouseMove)
+          .on('mouseout', handleMouseOut)
+
+    const leafTextArray = (d) => {
+      return d.data.name.split(/(?=[A-Z][^A-Z])/g);
+    };
 
     selectAll('g').append('clipPath') // kung lumampas 'yung text sa rect, iciclip nito
-            .attr('id', d => 'clip-' + d.data.id )
-            .append('use')
-              .attr('xlink:href', d => '#' + d.data.id)
-    
-    selectAll('g').append('text')
+      .attr('id', d => 'clip-' + d.data.id )
+      .append('use')
+        .attr('xlink:href', d => '#' + d.data.id)
+    selectAll('g').append('text')      
       .attr('clip-path', d => `url(#clip-${d.data.id})`)
       .selectAll('tspan')
-        .data(d => d.data.name.split(/(?=[A-Z][^A-Z])/g)) //new line every bagong word (capital letter)
-        .enter().append('tspan') // tspan kasi new line every 'word' ng leaf node
+      .data(d => leafTextArray(d)) // returns an array of the leaf element name
+      .enter().append('tspan') // tspan kasi new line every 'word' ng leaf element name
         .attr('x', 4) // 4px from the left of rect
-        .attr('y', (d,i) => 13 + i * 12) // 13px below the top, 15px every line
-        .text(d => d) // text 'yung mismong array?
+        .attr('y', (d,i) => (13 + i * 12)) // 13px below the top, 15px every line
+        .text(d => d) // text isa-isang result nung split
     
-    selectAll('g').append('title')
-      // formatted ang value, ',d' -> decimal with comma separators
-      .text(d => d.data.id + '\n' + format(',d')(d.value)) // parang tooltip 'tong title element
+    let categories = rootNode.leaves().map(i => i.parent.data.name)
+    // let removeDupes = (categories) => {
+    //   let seen = {};
+    //   return categories.filter(i => (
+    //     seen.hasOwnProperty(i) ? false : (seen[i] = true)
+    //   ))
+    // }
+    const removeDupes = (categories) => {
+      let seen = [];
+      categories.filter(d => {
+        // console.log('seen: ', seen);
+        seen.includes(d) ? false : seen.push(d)
+      })
+      return seen
+    }
+    const categoriesFiltered = removeDupes(categories);
+    
+    console.log({ categoriesFiltered});
+    
+    selectAll(node).append('g')
+      .attr('id', 'legend')
+
   }
 
   render() {
     return (
       <div id='main-container'>
-        <h1>This is (not yet) a treemap</h1>
-        <svg ref={node => this.node = node}
+        <h1>This is now a treemap of Flare</h1>
+        <svg id='treemap' ref={node => this.node = node}
           viewBox={`0 0 ${this.state.w} ${this.state.h}`}
           preserveAspectRatio='xMidYMid meet'>
         </svg>
+        <div id='tooltip' style={{'opacity': 0}}></div>
       </div>
     );
   };
@@ -151,3 +218,9 @@ render(
   <Treemap />,
   document.getElementById('root')
 );
+
+// selectAll('g').append('title')
+//   // formatted ang value, ',d' -> decimal with comma separators
+//   .text(d => d.data.id + '\n' + format(',d')(d.value)) // parang tooltip 'tong title element
+
+
