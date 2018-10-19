@@ -27,7 +27,7 @@ class Treemap extends Component {
        gamesData: [],
        moviesData: [],
        kickstartersData: [],
-       h: 600,
+       h: 500,
        w: 1200,
        p: 50,
     };
@@ -61,9 +61,10 @@ class Treemap extends Component {
   createTreemap(data) {
     console.log('creating treemap...')
     const node = this.node,
-    // habang lumalapit sa 1, pa-white nang pa-white 'yung fadedSchemePaired, who'dathunk?
+          nodeLegend = this.nodeLegend,
+          // habang lumalapit sa 1, pa-white nang pa-white 'yung fadedSchemePaired, who'dathunk?
           fadedSchemePaired = schemePaired.map(clr => interpolateRgb(clr, 'white')(0.5)),
-    // console.log({fadedSchemePaired});
+          // console.log({fadedSchemePaired});
           color = scaleOrdinal(fadedSchemePaired),
           sumBySize = d => d.size, // size ay property ng data na nasa flare.json
           sumByCount = d => (d.children ? 0 : 1);
@@ -139,7 +140,7 @@ class Treemap extends Component {
       .attr('id', 'cell')
       .data(rootNode.leaves())
       .enter().append('g')
-        .attr('class', 'group')
+        .attr('class', 'leaf')
         // itong ang magppwesto ng leaves sa dapat nilang kalagyan
         .attr('transform', d => `translate(${d.x0}, ${d.y0})`)
           .append('rect')
@@ -147,7 +148,7 @@ class Treemap extends Component {
           .attr('width', d => d.x1 - d.x0)
           .attr('height', d => d.y1 - d.y0)
           .attr('fill', d => {
-            console.log('coloring with: ', d.parent.data.id);
+            // console.log('coloring with: ', d.parent.data.id);
             return color(d.parent.data.id)
           }) 
           // ang parent.data.id ay parang napakalalim na object, e.g.,
@@ -174,55 +175,50 @@ class Treemap extends Component {
         .attr('y', (d,i) => (13 + i * 12)) // 13px below the top, 15px every line
         .text(d => d) // text isa-isang result nung split
     
-    const categories = rootNode.leaves().map(i => i.parent.data.id);
-    const removeDupes = (categories) => {
-      let seen = [];
-      categories.filter(d => {
-        // console.log('seen: ', seen);
-        seen.includes(d) ? false : seen.push(d)
-      })
-      return seen
-    }
-    const categoriesFiltered = removeDupes(categories);
-    // console.log({ categoriesFiltered});
-    const legendNum = categoriesFiltered.length,
-          legendSideLength = 40,
-          legendWidth = this.state.w / 2, // 600
-          legendNumCols = Math.floor(legendNum / 5), // 6; 'yung divisor na 5 ako lang nagset
+    const categories = rootNode.leaves().map(i => i.parent.data.id),
+          categoriesFiltered = removeDupes(categories),
+          legendNum = categoriesFiltered.length, // 30 categories
+          squareSize = 20, // i set the side length of squares to 40
+          legendWidth = this.state.w * 2 / 3,
+          legendNumCols = 10, // ikaw lang magseset nito
           legendNumRows = Math.ceil(legendNum / legendNumCols); // 5
     console.log({ categoriesFiltered, legendNumCols, legendNumRows });
-    const legendColWidth = legendWidth / legendNumCols, // 600/6; 100 px per entry sa isang column
-          legendRowHeight = legendSideLength + 20,
+    const legendColWidth = legendWidth / legendNumCols,
+          legendRowHeight = squareSize * 1.5, // 1.5 times ng squares
           // legendEntryWidth = (1200 + legendSideLength) / legendNum;
           legendColCoords = Array(legendNumCols).fill(0).map((d,i) => (
-            legendWidth / 2 + i * legendColWidth
+            this.state.w / 2 - legendWidth / 2 + i * legendColWidth
           )),
           legendRowCoords = Array(legendNumRows).fill(0).map((d,i) => (
-            this.state.h + 20 + i * legendRowHeight
+            squareSize + i * legendRowHeight
           ));
-
+    
     console.log({legendColCoords,legendRowCoords});
-    select(node).append('g')
+    select(nodeLegend).append('g')
       .attr('id', 'legend')
       .selectAll('g')
-      .data(categoriesFiltered).enter() // note of the reverse method here
+      .data(categoriesFiltered).enter() //
       .append('g')
       .attr('class', 'legend-category')
         .append('rect')
         .attr('class', 'legend-color')
-          .attr('height', legendSideLength)
-          .attr('width', legendSideLength)
-          .attr('x', (d, i) => legendColCoords[Math.ceil(i % legendNumCols)])
-          .attr('y', (d,i) => legendRowCoords[Math.floor(i % legendNumRows)])
+          .attr('height', squareSize)
+          .attr('width', squareSize*3.5)
+          .attr('x', (d,i) => legendColCoords[Math.floor(i % legendNumCols)])
+          .attr('y', (d,i) => legendRowCoords[Math.floor(i / legendNumCols)])
           .attr('fill', d => color(d))
-          .attr('data-category', d => d.match(/\w+$/g)[0]);
+          .attr('data-category', d => d.match(/\w+$/g)[0])
+          // .attr('data-category-index', (d,i) => i)
+          .attr('data-coordinates', (d,i) => 
+            `${Math.floor(i % legendNumCols)}, ${Math.floor(i / legendNumCols)}`)
 
     selectAll('.legend-category')
       .append('text')
       .attr('class', 'legend-text')
-      .attr('x', (d, i) => legendColCoords[Math.ceil(i % legendNumCols)])
-      .attr('y', (d, i) => legendRowCoords[Math.floor(i % legendNumRows)] - 5)
-        .text((d,i) => i + ' ' + d.match(/\w+$/g)[0]); // selects the last object
+      .attr('x', (d, i) => legendColCoords[Math.floor(i % legendNumCols)])
+      .attr('y', (d, i) => legendRowCoords[Math.floor(i / legendNumCols)] - 2.5)
+      .attr('transform', `translate(4,${squareSize/1.2})`)
+        .text((d,i) => ' ' + d.match(/\w+$/g)[0]); // selects the last object
     
   }
 
@@ -234,6 +230,9 @@ class Treemap extends Component {
           viewBox={`0 0 ${this.state.w} ${this.state.h}`}
           preserveAspectRatio='xMidYMid meet'>
         </svg>
+        <svg id='legend' ref={nodeLegend => this.nodeLegend = nodeLegend}
+          viewBox={`0 0 ${this.state.w} ${this.state.h/2}`}
+          preserveAspectRatio='xMidYMid meet'/>
         <div id='tooltip' style={{'opacity': 0}}></div>
       </div>
     );
@@ -249,4 +248,11 @@ render(
 //   // formatted ang value, ',d' -> decimal with comma separators
 //   .text(d => d.data.id + '\n' + format(',d')(d.value)) // parang tooltip 'tong title element
 
-
+const removeDupes = (categories) => {
+  let seen = [];
+  categories.filter(d => {
+    // console.log('seen: ', seen);
+    seen.includes(d) ? false : seen.push(d)
+  })
+  return seen
+};

@@ -9,6 +9,10 @@ html,body {
   font-size: 11px;
 }
 
+h1 {
+  margin: 1rem; padding: 0;
+}
+
 #tooltip {
   position: absolute;
   background: hsla(0, 0%, 0%, 0.76);

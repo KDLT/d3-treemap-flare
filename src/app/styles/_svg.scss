@@ -1,15 +1,21 @@
 svg#treemap {
   background: none;
   color: black;
-  //margin: 0 20px 0 20px;
+  margin: 0 5vw 0 5vw;
   //padding: 10px;
-  transform: scale(0.95);
-  -webkit-transform: scale(0.95);
-  -moz-transform: scale(0.95);
-  -ms-transform: scale(0.95);
-  -o-transform: scale(0.95);
+  transform: scale(1);
+  -webkit-transform: scale(1);
+  -moz-transform: scale(1);
+  -ms-transform: scale(1);
+  -o-transform: scale(1);
   overflow: visible;
-  padding-bottom: 50px;
+  //padding-bottom: 50px;
+}
+
+svg#legend {
+  background: ghostwhite;
+  color:black;
+  overflow: visible;
 }
 
 // var legend = d3.select("#legend")
